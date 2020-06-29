@@ -1,41 +1,35 @@
 import pandas as pd
 import numpy as np
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import confusion_matrix
-from sklearn.metrics import accuracy_score
-from sklearn.metrics import roc_curve
-from sklearn.metrics import roc_auc_score
+from sklearn.metrics import confusion_matrix,accuracy_score,roc_curve,roc_auc_score
 import sweetviz
+from category_encoders.one_hot import OneHotEncoder
+import matplotlib.pyplot as plt
+import seaborn as sns
 
 df = pd.read_csv('adult.data')
-#print(df.head())
-#print(df.isnull().values.any())
+print(df.head())
+print(df.dtypes)
+print(df.isnull().values.any())
 
-df.columns = ['age','workclass','fnlwgt','education','education-num','marital-status','occupation','relationship','race','sex','capital-gain','capital-loss','hours-per-week','native-country','income']
-
-def mapping_function(df_column):
-    dic = {}
-    b = 0
-    for a in df_column.unique():
-        dic[a] = b
-        b += 1
-    return (dic)
+columns = ['age','workclass','fnlwgt','education','education-num','marital-status','occupation','relationship','race','sex','capital-gain','capital-loss','hours-per-week','native-country','income']
 
 for colum in df.columns:
     if df[colum].dtype == object:
-        df[colum] = df[colum].map(mapping_function(df[colum]))
+        df[colum] = OneHotEncoder().fit_transform(df[colum])
 
-df[['age','fnlwgt','education-num','capital-gain','capital-loss','hours-per-week']] = StandardScaler().fit_transform(df[['age','fnlwgt','education-num','capital-gain','capital-loss','hours-per-week']])
+df = MinMaxScaler().fit_transform(df)
+df = pd.DataFrame(df, columns= columns)
 
-# my_report = sweetviz.analyze(df,target_feat='income')
-# my_report.show_html()
 
 correlations = df.corr()['income'].drop('income')
-# print(correlations)
-#
-# sns.heatmap(df.corr(),fmt = '.2f',annot = True)
+print(correlations)
+print(correlations.quantile(.25))
+print(correlations.quantile(.75))
+print(correlations.quantile(.50))
+# sns.heatmap(df.corr(), fmt = '.2f',annot = True)
 # plt.show()
 
 def get_features(correlation_threshold):
@@ -43,21 +37,38 @@ def get_features(correlation_threshold):
     high_correlations = abs_corrs[abs_corrs > correlation_threshold].index.values.tolist()
     return high_correlations
 
-features = get_features(0.1)
+# thresh = []
+# scores = []
+# for i in np.arange(start = 0.06,stop = 0.20,step = 0.02):
+#     features = get_features(i)
+#     thresh.append((i))
+#     X = df[features]
+#     Y = df.income
+#
+#     x_train, x_test, y_train, y_test = train_test_split(X, Y, random_state=4)
+#     classifier = LogisticRegression()
+#     classifier.fit(x_train, y_train)
+#     score = classifier.score(x_test, y_test)
+#     scores.append(score)
+# plt.plot(thresh,scores)
+# plt.xlabel('thrshold_values')
+# plt.ylabel('scores')
+# plt.show()
+
+features = get_features(0.13)
 #print(features)
 
 x = df[features]
 y = df.income
-#print(y.unique())
 
-x_train,x_test,y_train,y_test = train_test_split(x,y,random_state= 6)
+x_train,x_test,y_train,y_test = train_test_split(x,y,random_state= 4)
 
 classifier = LogisticRegression()
 classifier.fit(x_train,y_train)
-# print(classifier.score(x_test,y_test))
+print(classifier.score(x_test,y_test))
 
-#predictions = classifier.predict(x_test)
-#print(confusion_matrix(y_test,predictions))
+predictions = classifier.predict(x_test)
+print(confusion_matrix(y_test,predictions))
 
 
 probs = (classifier.predict_proba(x_test)[:,1])
